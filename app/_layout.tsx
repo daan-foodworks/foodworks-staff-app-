@@ -11,19 +11,28 @@ function RootLayoutNav() {
   const router = useRouter();
   const segments = useSegments();
 
+  // Laad auth uit SecureStore bij opstarten
   useEffect(() => {
     loadAuth();
   }, []);
 
+  // Bewak auth-state wijzigingen na de initiële load (bijv. sessie-expiry, uitloggen)
   useEffect(() => {
     if (isLoading) return;
     const inAuthGroup = segments[0] === '(auth)';
-    if (!user && !inAuthGroup) {
+    const inTabsGroup = segments[0] === '(tabs)';
+
+    if (!user && inTabsGroup) {
+      // Sessie verlopen of uitgelogd: stuur naar login
       router.replace('/(auth)/login');
     } else if (user && inAuthGroup) {
+      // Al ingelogd maar op auth-scherm: stuur naar tabs
       router.replace('/(tabs)/rooster');
     }
   }, [user, isLoading, segments]);
+
+  // Render niets zolang auth nog geladen wordt — index.tsx toont de loader
+  if (isLoading) return null;
 
   return <Stack screenOptions={{ headerShown: false }} />;
 }

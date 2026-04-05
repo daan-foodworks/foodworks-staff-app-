@@ -24,7 +24,15 @@ export function ShiftThumbnail({ shift }: { shift: any }) {
   );
 }
 
-export function ShiftListItem({ shift, onPress }: { shift: any; onPress: () => void }) {
+export function ShiftListItem({
+  shift,
+  onPress,
+  isPendingRequest = false,
+}: {
+  shift: any;
+  onPress: () => void;
+  isPendingRequest?: boolean;
+}) {
   const formattedDate = shift.startTime
     ? format(new Date(shift.startTime), 'd MMMM yyyy - HH:mm', { locale: nl })
     : '';
@@ -37,6 +45,11 @@ export function ShiftListItem({ shift, onPress }: { shift: any; onPress: () => v
         <Text style={styles.listItemDate} numberOfLines={1}>{formattedDate}</Text>
         {shift.shiftRole && (
           <Text style={styles.listItemRole} numberOfLines={1}>{shift.shiftRole.name}</Text>
+        )}
+        {isPendingRequest && (
+          <View style={styles.pendingBadge}>
+            <Text style={styles.pendingBadgeText}>Aanmelding in behandeling</Text>
+          </View>
         )}
       </View>
     </TouchableOpacity>
@@ -106,5 +119,20 @@ const styles = StyleSheet.create({
   listItemRole: {
     fontSize: 13,
     color: Colors.gray600,
+  },
+  pendingBadge: {
+    marginTop: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFF8E1',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  pendingBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#92400E',
   },
 });

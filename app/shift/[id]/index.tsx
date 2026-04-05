@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Modal } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { shiftsApi, invitationsApi } from '@/lib/api';
@@ -10,10 +11,16 @@ export default function ShiftDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const { data: shift, isLoading } = useQuery({
     queryKey: ['shift', id],
     queryFn: () => shiftsApi.getShift(id).then(r => r.data),
+  });
+
+  const { data: myInvitations } = useQuery({
+    queryKey: ['my-invitations'],
+    queryFn: () => invitationsApi.getMyInvitations().then(r => r.data),
   });
 
   const requestMutation = useMutation({
@@ -21,7 +28,16 @@ export default function ShiftDetailScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['open-shifts'] });
       queryClient.invalidateQueries({ queryKey: ['my-shifts'] });
-      Alert.alert('Aanmelding ingediend', 'Je ontvangt bericht zodra je wordt bevestigd.');
+      queryClient.invalidateQueries({ queryKey: ['my-invitations'] });
+      queryClient.invalidateQueries({ queryKey: ['shift', id] });
+      setShowSuccessModal(true);
+    },
+    onError: () => {
+      Alert.alert(
+        'Aanmelding mislukt',
+        'Er is iets misgegaan bij het versturen van je aanmelding. Probeer het opnieuw.',
+        [{ text: 'Sluiten' }]
+      );
     },
   });
 
@@ -42,6 +58,14 @@ export default function ShiftDetailScreen() {
   const shiftDate = new Date(shift.startTime);
   const isToday = today.toDateString() === shiftDate.toDateString();
   const canClockIn = isToday && shift.invitation?.status === 'ACCEPTED';
+
+  // Check of er een REQUESTED invitation bestaat voor deze shift via de my-invitations lijst
+  const pendingInvitation = myInvitations?.find(
+    (inv: any) => inv.shiftId === shift.id && inv.status === 'REQUESTED'
+  );
+  // Fallback: de shift zelf kan ook een invitation object bevatten
+  const hasRequestedStatus =
+    pendingInvitation != null || shift.invitation?.status === 'REQUESTED';
 
   return (
     <ScrollView style={styles.container}>
@@ -114,6 +138,15 @@ export default function ShiftDetailScreen() {
           </View>
         )}
 
+        {hasRequestedStatus && (
+          <View style={styles.pendingBanner}>
+            <Text style={styles.pendingBannerIcon}>Aanmelding in behandeling</Text>
+            <Text style={styles.pendingBannerText}>
+              Je aanmelding wordt beoordeeld door de planner
+            </Text>
+          </View>
+        )}
+
         {canClockIn && (
           <TouchableOpacity
             style={[styles.button, styles.clockInButton]}
@@ -123,15 +156,17 @@ export default function ShiftDetailScreen() {
           </TouchableOpacity>
         )}
 
-        {!shift.invitation && shift.status === 'OPEN' && (
+        {!shift.invitation && !hasRequestedStatus && shift.status === 'OPEN' && (
           <TouchableOpacity
             style={[styles.button, styles.requestButton]}
             onPress={() => requestMutation.mutate()}
             disabled={requestMutation.isPending}
           >
-            <Text style={styles.buttonText}>
-              {requestMutation.isPending ? 'Bezig...' : 'Ik wil deze dienst!'}
-            </Text>
+            {requestMutation.isPending ? (
+              <ActivityIndicator color={Colors.white} size="small" />
+            ) : (
+              <Text style={styles.buttonText}>Ik wil deze dienst!</Text>
+            )}
           </TouchableOpacity>
         )}
 
@@ -144,6 +179,34 @@ export default function ShiftDetailScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      <Modal
+        visible={showSuccessModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconContainer}>
+              <Text style={styles.modalIcon}>✓</Text>
+            </View>
+            <Text style={styles.modalTitle}>Aanmelding verzonden!</Text>
+            <Text style={styles.modalText}>
+              Je aanmelding is doorgestuurd naar de planner. Je ontvangt een bericht zodra je aanmelding bevestigd of geweigerd is.
+            </Text>
+            <TouchableOpacity
+              style={[styles.button, styles.modalButton]}
+              onPress={() => {
+                setShowSuccessModal(false);
+                router.replace('/(tabs)/diensten' as any);
+              }}
+            >
+              <Text style={styles.buttonText}>Terug naar diensten</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -177,4 +240,69 @@ const styles = StyleSheet.create({
   requestButton: { backgroundColor: Colors.accent },
   declareButton: { backgroundColor: Colors.primary },
   buttonText: { color: Colors.white, fontSize: 16, fontWeight: '600' },
+  pendingBanner: {
+    backgroundColor: '#FFF8E1',
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#F59E0B',
+    gap: 4,
+  },
+  pendingBannerIcon: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  pendingBannerText: {
+    fontSize: 13,
+    color: '#92400E',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    padding: 28,
+    width: '100%',
+    alignItems: 'center',
+    gap: 12,
+  },
+  modalIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.teal,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  modalIcon: {
+    fontSize: 32,
+    color: Colors.white,
+    fontWeight: '700',
+    lineHeight: 36,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.dark,
+    textAlign: 'center',
+  },
+  modalText: {
+    fontSize: 14,
+    color: Colors.gray600,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  modalButton: {
+    backgroundColor: Colors.accent,
+    width: '100%',
+    flex: 0,
+  },
 });

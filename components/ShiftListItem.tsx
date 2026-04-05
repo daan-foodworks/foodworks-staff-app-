@@ -46,7 +46,10 @@ export function ShiftListItem({
     ? format(new Date(shift.startTime), 'd MMMM yyyy - HH:mm', { locale: nl })
     : '';
 
-  const timeEntryBadge = shift.timeEntry && TIME_ENTRY_BADGES[shift.timeEntry.status];
+  // Toon declareer-badge alleen als de medewerker is uitgeklokt (clockOutAt aanwezig)
+  const timeEntryBadge = shift.timeEntry?.clockOutAt
+    ? TIME_ENTRY_BADGES[shift.timeEntry.status]
+    : null;
 
   return (
     <TouchableOpacity style={styles.listItem} onPress={onPress} activeOpacity={0.7}>

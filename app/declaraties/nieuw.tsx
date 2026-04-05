@@ -37,7 +37,11 @@ export default function NieuweDeclaratieScreen() {
           name: 'receipt.jpg',
         } as any);
       }
-      return expensesApi.submit(formData);
+      // Create as DRAFT, then immediately submit
+      const response = await expensesApi.submit(formData);
+      const expense = response.data;
+      await expensesApi.declare(expense.id);
+      return expense;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-expenses'] });

@@ -34,7 +34,16 @@ function RootLayoutNav() {
   // Render niets zolang auth nog geladen wordt — index.tsx toont de loader
   if (isLoading) return null;
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: 'none',
+        gestureEnabled: false,
+        animationEnabled: false,
+      }}
+    />
+  );
 }
 
 export default function RootLayout() {

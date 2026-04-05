@@ -1,5 +1,6 @@
 {
   "expo": {
+    "newArchEnabled": false,
     "name": "Street Nacho Personeel",
     "slug": "foodworks-staff-app",
     "version": "1.0.0",

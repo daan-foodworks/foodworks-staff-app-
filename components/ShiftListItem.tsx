@@ -24,6 +24,15 @@ export function ShiftThumbnail({ shift }: { shift: any }) {
   );
 }
 
+const TIME_ENTRY_BADGES: Record<string, { label: string; bg: string; color: string }> = {
+  DRAFT: { label: 'Declareren', bg: '#FFF3E0', color: '#E65100' },
+  SUBMITTED: { label: 'In behandeling', bg: '#E3F2FD', color: '#1565C0' },
+  MORE_INFO_NEEDED: { label: 'Info nodig', bg: '#FFF3E0', color: '#E65100' },
+  APPROVED: { label: 'Goedgekeurd', bg: '#E8F5E9', color: '#2E7D32' },
+  REJECTED: { label: 'Afgekeurd', bg: '#FFEBEE', color: '#C62828' },
+  PAID: { label: 'Uitbetaald', bg: '#F3E5F5', color: '#6A1B9A' },
+};
+
 export function ShiftListItem({
   shift,
   onPress,
@@ -37,6 +46,8 @@ export function ShiftListItem({
     ? format(new Date(shift.startTime), 'd MMMM yyyy - HH:mm', { locale: nl })
     : '';
 
+  const timeEntryBadge = shift.timeEntry && TIME_ENTRY_BADGES[shift.timeEntry.status];
+
   return (
     <TouchableOpacity style={styles.listItem} onPress={onPress} activeOpacity={0.7}>
       <ShiftThumbnail shift={shift} />
@@ -49,6 +60,11 @@ export function ShiftListItem({
         {isPendingRequest && (
           <View style={styles.pendingBadge}>
             <Text style={styles.pendingBadgeText}>Aanmelding in behandeling</Text>
+          </View>
+        )}
+        {timeEntryBadge && (
+          <View style={[styles.pendingBadge, { backgroundColor: timeEntryBadge.bg, borderColor: timeEntryBadge.color }]}>
+            <Text style={[styles.pendingBadgeText, { color: timeEntryBadge.color }]}>{timeEntryBadge.label}</Text>
           </View>
         )}
       </View>

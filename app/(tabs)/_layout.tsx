@@ -20,6 +20,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="diensten"
+        options={{
+          title: 'Diensten',
+          tabBarIcon: ({ color, focused, size }) => (
+            <Ionicons name={focused ? 'briefcase' : 'briefcase-outline'} color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="inklokken"
         options={{
           title: 'Inklokken',

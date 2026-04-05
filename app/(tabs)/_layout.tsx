@@ -30,10 +30,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="inklokken"
-        options={{
-          title: 'Inklokken',
-          tabBarIcon: ({ color, size }) => <Ionicons name="time-outline" color={color} size={size} />,
-        }}
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="declaraties"

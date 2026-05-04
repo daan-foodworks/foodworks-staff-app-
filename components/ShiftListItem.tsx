@@ -37,10 +37,12 @@ export function ShiftListItem({
   shift,
   onPress,
   isPendingRequest = false,
+  archived = false,
 }: {
   shift: any;
   onPress: () => void;
   isPendingRequest?: boolean;
+  archived?: boolean;
 }) {
   const formattedDate = shift.startTime
     ? format(new Date(shift.startTime), 'd MMMM yyyy - HH:mm', { locale: nl })
@@ -52,7 +54,7 @@ export function ShiftListItem({
     : null;
 
   return (
-    <TouchableOpacity style={styles.listItem} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={[styles.listItem, archived && styles.listItemArchived]} onPress={onPress} activeOpacity={0.7}>
       <ShiftThumbnail shift={shift} />
       <View style={styles.listItemContent}>
         <Text style={styles.listItemTitle} numberOfLines={1}>{shift.title}</Text>
@@ -100,6 +102,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  listItemArchived: {
+    opacity: 0.55,
   },
   thumbnail: {
     width: 64,

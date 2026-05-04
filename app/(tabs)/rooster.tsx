@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, Text, ScrollView, RefreshControl, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -14,6 +14,7 @@ export default function RoosterScreen() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
 
   const { data: myShifts, isLoading, refetch } = useQuery({
     queryKey: ['my-shifts'],
@@ -48,6 +49,24 @@ export default function RoosterScreen() {
   });
 
   const activeEntry = myEntries?.find((e: any) => e.clockInAt && !e.clockOutAt);
+
+  const { activeShifts, archivedShifts } = useMemo(() => {
+    const now = new Date();
+    const active: any[] = [];
+    const archived: any[] = [];
+    (myShifts ?? []).forEach((shift: any) => {
+      const isPast = shift.endTime && new Date(shift.endTime) < now;
+      const entry = (myEntries ?? []).find((e: any) => e.shiftId === shift.id);
+      const isApproved = entry?.status === 'APPROVED' || entry?.status === 'PAID';
+      if (isPast && isApproved) {
+        archived.push(shift);
+      } else {
+        active.push(shift);
+      }
+    });
+    archived.sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime());
+    return { activeShifts: active, archivedShifts: archived };
+  }, [myShifts, myEntries]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -135,23 +154,49 @@ export default function RoosterScreen() {
         <View style={shiftListStyles.listContainer}>
           {isLoading ? (
             <ActivityIndicator size="large" color={Colors.teal} style={{ marginVertical: 24 }} />
-          ) : !myShifts?.length ? (
+          ) : !activeShifts.length ? (
             <Text style={shiftListStyles.emptyText}>
               Geen diensten gepland — je ontvangt een melding zodra er een dienst voor je klaarstaat
             </Text>
           ) : (
-            myShifts.map((shift: any, index: number) => (
+            activeShifts.map((shift: any, index: number) => (
               <View key={shift.id}>
                 <ShiftListItem
                   shift={shift}
                   onPress={() => router.push(`/shift/${shift.id}` as any)}
                 />
-                {index < myShifts.length - 1 && <View style={shiftListStyles.divider} />}
+                {index < activeShifts.length - 1 && <View style={shiftListStyles.divider} />}
               </View>
             ))
           )}
         </View>
       </View>
+
+      {archivedShifts.length > 0 && (
+        <View style={styles.section}>
+          <TouchableOpacity style={styles.archiveHeader} onPress={() => setArchiveOpen(o => !o)}>
+            <Text style={styles.sectionTitle}>Archief</Text>
+            <View style={styles.archiveMeta}>
+              <Text style={styles.archiveCount}>{archivedShifts.length}</Text>
+              <Text style={styles.archiveChevron}>{archiveOpen ? '▲' : '▼'}</Text>
+            </View>
+          </TouchableOpacity>
+          {archiveOpen && (
+            <View style={shiftListStyles.listContainer}>
+              {archivedShifts.map((shift: any, index: number) => (
+                <View key={shift.id}>
+                  <ShiftListItem
+                    shift={shift}
+                    onPress={() => router.push(`/shift/${shift.id}` as any)}
+                    archived
+                  />
+                  {index < archivedShifts.length - 1 && <View style={shiftListStyles.divider} />}
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -185,6 +230,31 @@ const styles = StyleSheet.create({
   activeBannerTitle: { color: Colors.white, fontWeight: '700', fontSize: 15 },
   activeBannerSub: { color: Colors.white, opacity: 0.85, fontSize: 13, marginTop: 2 },
   activeBannerAction: { color: Colors.white, fontWeight: '600', fontSize: 14 },
+
+  archiveHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  archiveMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  archiveCount: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.gray400,
+    backgroundColor: Colors.gray100,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  archiveChevron: {
+    fontSize: 11,
+    color: Colors.gray400,
+  },
 
   // Uitnodigingen
   invitationHeader: {

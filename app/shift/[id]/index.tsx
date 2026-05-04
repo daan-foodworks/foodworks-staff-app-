@@ -81,6 +81,10 @@ export default function ShiftDetailScreen() {
   );
   const hasRequestedStatus = pendingInvitation != null || shift.invitation?.status === 'REQUESTED';
 
+  const locationName =
+    shift.location?.name ||
+    shift.project?.location?.name;
+
   const locationAddr =
     shift.locationAddress ||
     shift.location?.address ||
@@ -140,15 +144,40 @@ export default function ShiftDetailScreen() {
         <Text style={styles.detailValue}>{projectManager}</Text>
       </View>
 
+      <View style={styles.divider} />
+
+      {/* Locatie */}
+      <View style={styles.detailSection}>
+        <View style={styles.detailLabelRow}>
+          <View style={styles.detailIcon}><Text style={styles.detailIconText}>📍</Text></View>
+          <Text style={styles.detailLabel}>Locatie</Text>
+        </View>
+        {locationName || locationAddr ? (
+          <TouchableOpacity
+            onPress={() => locationAddr ? Linking.openURL(`maps:?q=${encodeURIComponent(locationAddr)}`) : undefined}
+            disabled={!locationAddr}
+          >
+            {locationName && <Text style={styles.detailValue}>{locationName}</Text>}
+            {locationAddr && (
+              <Text style={[locationName ? styles.detailSub : styles.detailValue, locationAddr && styles.detailValueLink]}>
+                {locationAddr}
+              </Text>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.detailValue}>—</Text>
+        )}
+      </View>
+
       {/* Maps button */}
       {locationAddr && (
-        <View style={{ paddingHorizontal: 20, paddingTop: 24 }}>
+        <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
           <TouchableOpacity
             style={styles.mapsButton}
             onPress={() => Linking.openURL(`maps:?q=${encodeURIComponent(locationAddr)}`)}
           >
-            <Text style={styles.mapsButtonIcon}>📍</Text>
-            <Text style={styles.mapsButtonText}>Adres op Google Maps</Text>
+            <Text style={styles.mapsButtonIcon}>🗺️</Text>
+            <Text style={styles.mapsButtonText}>Open in Maps</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -469,6 +498,7 @@ const styles = StyleSheet.create({
   detailIconText: { fontSize: 16 },
   detailLabel: { fontSize: 13, color: Colors.gray400, fontWeight: '500' },
   detailValue: { fontSize: 17, fontWeight: '700', color: Colors.dark },
+  detailValueLink: { color: '#6C63FF', textDecorationLine: 'underline' },
   detailSub: { fontSize: 14, color: Colors.gray600, marginTop: 2 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: Colors.gray200, marginHorizontal: 20 },
 

@@ -8,6 +8,7 @@ import { nl } from 'date-fns/locale';
 import { shiftsApi, invitationsApi, timeEntriesApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { Colors } from '@/lib/colors';
+import { ShiftListItem, shiftListStyles } from '@/components/ShiftListItem';
 
 const FALLBACK_BANNER = 'https://cdn.regiobode.nl/sallandcentraal/uploads/2019/04/0141512_Dauwpop.jpg';
 
@@ -47,17 +48,25 @@ export default function HomeScreen() {
     refetchInterval: 30000,
   });
 
+  const { data: openShifts, refetch: refetchOpenShifts } = useQuery({
+    queryKey: ['open-shifts'],
+    queryFn: () => shiftsApi.getOpenShifts().then(r => r.data),
+  });
+
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetchShifts(), refetchInvitations(), refetchEntries()]);
+    await Promise.all([refetchShifts(), refetchInvitations(), refetchEntries(), refetchOpenShifts()]);
     setRefreshing(false);
   };
 
   const now = new Date();
 
-  const upcomingShift = myShifts
-    ?.filter((s: any) => new Date(s.startTime) >= now)
-    ?.sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0];
+  const futureShifts = (myShifts ?? [])
+    .filter((s: any) => new Date(s.startTime) >= now)
+    .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+  const upcomingShift = futureShifts[0];
+  const otherUpcomingShifts = futureShifts.slice(1);
 
   const activeEntry = myEntries?.find((e: any) => e.clockInAt && !e.clockOutAt);
 
@@ -146,32 +155,68 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </ImageBackground>
 
-      {/* Actielijst */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Actielijst</Text>
-        <View style={styles.actionList}>
-          {actionItems.length > 0 ? actionItems.map((item, index) => (
-            <TouchableOpacity
-              key={item.id}
-              style={[styles.actionItem, index < actionItems.length - 1 && styles.actionItemBorder]}
-              onPress={item.onPress}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.actionBar, { backgroundColor: item.color }]} />
-              <View style={styles.actionText}>
-                <Text style={styles.actionLabel}>{item.label}</Text>
-                <Text style={styles.actionSub}>{item.sub}</Text>
+      {/* Actielijst — alleen bij openstaande acties */}
+      {actionItems.length > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Actielijst</Text>
+          <View style={styles.actionList}>
+            {actionItems.map((item, index) => (
+              <TouchableOpacity
+                key={item.id}
+                style={[styles.actionItem, index < actionItems.length - 1 && styles.actionItemBorder]}
+                onPress={item.onPress}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.actionBar, { backgroundColor: item.color }]} />
+                <View style={styles.actionText}>
+                  <Text style={styles.actionLabel}>{item.label}</Text>
+                  <Text style={styles.actionSub}>{item.sub}</Text>
+                </View>
+                <Text style={styles.actionChevron}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      ) : otherUpcomingShifts.length > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Mijn diensten</Text>
+          <View style={shiftListStyles.listContainer}>
+            {otherUpcomingShifts.map((shift: any, index: number) => (
+              <View key={shift.id}>
+                <ShiftListItem
+                  shift={shift}
+                  onPress={() => router.push(`/shift/${shift.id}` as any)}
+                />
+                {index < otherUpcomingShifts.length - 1 && <View style={shiftListStyles.divider} />}
               </View>
-              <Text style={styles.actionChevron}>›</Text>
-            </TouchableOpacity>
-          )) : (
+            ))}
+          </View>
+        </View>
+      ) : (openShifts?.length ?? 0) > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Openstaande diensten</Text>
+          <View style={shiftListStyles.listContainer}>
+            {openShifts.map((shift: any, index: number) => (
+              <View key={shift.id}>
+                <ShiftListItem
+                  shift={shift}
+                  onPress={() => router.push(`/shift/${shift.id}` as any)}
+                />
+                {index < openShifts.length - 1 && <View style={shiftListStyles.divider} />}
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : (
+        <View style={styles.section}>
+          <View style={styles.actionList}>
             <View style={styles.emptyAction}>
               <Text style={styles.emptyActionIcon}>✓</Text>
-              <Text style={styles.emptyActionText}>Geen openstaande acties</Text>
+              <Text style={styles.emptyActionText}>Geen geplande of openstaande diensten</Text>
             </View>
-          )}
+          </View>
         </View>
-      </View>
+      )}
     </ScrollView>
   );
 }

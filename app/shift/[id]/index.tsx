@@ -11,6 +11,7 @@ import { useAuthStore } from '@/lib/auth-store';
 import { Colors } from '@/lib/colors';
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
+import { Ionicons } from '@expo/vector-icons';
 
 type Tab = 'workflow' | 'details' | 'team';
 
@@ -101,75 +102,59 @@ export default function ShiftDetailScreen() {
 
   const renderDetails = () => (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 120 }}>
-      {/* Opdrachtgever */}
-      <View style={styles.detailSection}>
+      <DetailRow icon="business-outline" label="Opdrachtgever" value={opdrachtgever} />
+      <View style={styles.divider} />
+
+      <DetailRow
+        icon="briefcase-outline"
+        label="Project"
+        value={shift.project?.title ?? '—'}
+        sub={shift.shiftRole?.name}
+      />
+      <View style={styles.divider} />
+
+      <DetailRow icon="pricetag-outline" label="Projectnummer" value={shift.project?.projectNumber ?? '—'} />
+      <View style={styles.divider} />
+
+      <DetailRow icon="person-outline" label="Projectmanager" value={projectManager} />
+      <View style={styles.divider} />
+
+      {/* Locatie — clickable row */}
+      <TouchableOpacity
+        style={styles.detailSection}
+        onPress={() => locationAddr && Linking.openURL(`maps:?q=${encodeURIComponent(locationAddr)}`)}
+        disabled={!locationAddr}
+        activeOpacity={locationAddr ? 0.6 : 1}
+      >
         <View style={styles.detailLabelRow}>
-          <View style={styles.detailIcon}><Text style={styles.detailIconText}>🏢</Text></View>
-          <Text style={styles.detailLabel}>Opdrachtgever</Text>
-        </View>
-        <Text style={styles.detailValue}>{opdrachtgever}</Text>
-      </View>
-
-      <View style={styles.divider} />
-
-      {/* Project */}
-      <View style={styles.detailSection}>
-        <View style={styles.detailLabelRow}>
-          <View style={styles.detailIcon}><Text style={styles.detailIconText}>📋</Text></View>
-          <Text style={styles.detailLabel}>Project</Text>
-        </View>
-        <Text style={styles.detailValue}>{shift.project?.title ?? '—'}</Text>
-        {shift.shiftRole?.name && (
-          <Text style={styles.detailSub}>{shift.shiftRole.name}</Text>
-        )}
-      </View>
-
-      <View style={styles.divider} />
-
-      {/* Projectnummer */}
-      <View style={styles.detailSection}>
-        <Text style={styles.detailLabel}>Projectnummer</Text>
-        <Text style={styles.detailValue}>{shift.project?.projectNumber ?? '—'}</Text>
-      </View>
-
-      <View style={styles.divider} />
-
-      {/* Projectmanager */}
-      <View style={styles.detailSection}>
-        <Text style={styles.detailLabel}>Projectmanager</Text>
-        <Text style={styles.detailValue}>{projectManager}</Text>
-      </View>
-
-      <View style={styles.divider} />
-
-      {/* Locatie */}
-      <View style={styles.detailSection}>
-        <View style={styles.detailLabelRow}>
-          <View style={styles.detailIcon}><Text style={styles.detailIconText}>📍</Text></View>
+          <Ionicons name="location-outline" size={16} color={Colors.gray600} />
           <Text style={styles.detailLabel}>Locatie</Text>
+          {locationAddr && (
+            <View style={styles.detailRowAction}>
+              <Text style={styles.detailRowActionText}>Open in Maps</Text>
+              <Ionicons name="chevron-forward" size={16} color={ACCENT} />
+            </View>
+          )}
         </View>
-        {locationAddr ? (
-          <TouchableOpacity onPress={() => Linking.openURL(`maps:?q=${encodeURIComponent(locationAddr)}`)}>
-            <Text style={[styles.detailValue, styles.detailValueLink]}>{locationAddr}</Text>
-          </TouchableOpacity>
-        ) : (
-          <Text style={styles.detailValue}>—</Text>
-        )}
-      </View>
-
-      {/* Maps button */}
-      {locationAddr && (
-        <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
-          <TouchableOpacity
-            style={styles.mapsButton}
-            onPress={() => Linking.openURL(`maps:?q=${encodeURIComponent(locationAddr)}`)}
-          >
-            <Text style={styles.mapsButtonIcon}>🗺️</Text>
-            <Text style={styles.mapsButtonText}>Open in Maps</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+        <Text style={styles.detailValue}>{locationAddr ?? '—'}</Text>
+      </TouchableOpacity>
     </ScrollView>
+  );
+
+  const DetailRow = ({ icon, label, value, sub }: {
+    icon: keyof typeof Ionicons.glyphMap;
+    label: string;
+    value: string;
+    sub?: string;
+  }) => (
+    <View style={styles.detailSection}>
+      <View style={styles.detailLabelRow}>
+        <Ionicons name={icon} size={16} color={Colors.gray600} />
+        <Text style={styles.detailLabel}>{label}</Text>
+      </View>
+      <Text style={styles.detailValue}>{value}</Text>
+      {sub ? <Text style={styles.detailSub}>{sub}</Text> : null}
+    </View>
   );
 
   const renderWorkflow = () => (
@@ -352,22 +337,19 @@ export default function ShiftDetailScreen() {
 
         <Text style={styles.headerTitle}>{shift.title}</Text>
 
-        {locationAddr ? (
-          <View style={styles.headerMeta}>
-            <Text style={styles.headerMetaIcon}>📍</Text>
-            <Text style={styles.headerMetaText} numberOfLines={1}>{locationAddr}</Text>
+        <View style={styles.headerMetaRow}>
+          <View style={styles.headerChip}>
+            <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.85)" />
+            <Text style={styles.headerChipText}>
+              {format(shiftDate, 'EEE d MMM', { locale: nl })}
+            </Text>
           </View>
-        ) : null}
-
-        <View style={styles.headerMeta}>
-          <Text style={styles.headerMetaIcon}>📅</Text>
-          <Text style={styles.headerMetaText}>
-            {format(shiftDate, 'EEE. d MMM', { locale: nl })}
-          </Text>
-          <Text style={styles.headerMetaIcon}> ⏰</Text>
-          <Text style={styles.headerMetaText}>
-            {format(new Date(shift.startTime), 'HH:mm')} - {format(new Date(shift.endTime), 'HH:mm')}
-          </Text>
+          <View style={styles.headerChip}>
+            <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.85)" />
+            <Text style={styles.headerChipText}>
+              {format(new Date(shift.startTime), 'HH:mm')} – {format(new Date(shift.endTime), 'HH:mm')}
+            </Text>
+          </View>
         </View>
 
         {/* ── TABS ── */}
@@ -443,14 +425,26 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     fontFamily: 'Archivo_700Bold',
   },
-  headerMeta: {
+  headerMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 4,
+  },
+  headerChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginBottom: 6,
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
-  headerMetaIcon: { fontSize: 14 },
-  headerMetaText: { fontSize: 14, color: 'rgba(255,255,255,0.75)', flexShrink: 1 },
+  headerChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.92)',
+  },
 
   // Tabs
   tabs: {
@@ -477,30 +471,14 @@ const styles = StyleSheet.create({
   content: { flex: 1, backgroundColor: Colors.background },
 
   // Details tab
-  detailSection: { paddingHorizontal: 20, paddingVertical: 16 },
-  detailLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  detailIcon: {
-    width: 32, height: 32, borderRadius: 8,
-    backgroundColor: '#EEEEFF', alignItems: 'center', justifyContent: 'center',
-  },
-  detailIconText: { fontSize: 16 },
-  detailLabel: { fontSize: 13, color: Colors.gray400, fontWeight: '500' },
-  detailValue: { fontSize: 17, fontWeight: '700', color: Colors.dark },
-  detailValueLink: { color: '#6C63FF', textDecorationLine: 'underline' },
-  detailSub: { fontSize: 14, color: Colors.gray600, marginTop: 2 },
+  detailSection: { paddingHorizontal: 20, paddingVertical: 14 },
+  detailLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  detailLabel: { fontSize: 13, color: Colors.gray600, fontWeight: '600', flex: 1 },
+  detailValue: { fontSize: 16, fontWeight: '700', color: Colors.dark, marginLeft: 24 },
+  detailSub: { fontSize: 14, color: Colors.gray600, marginTop: 2, marginLeft: 24 },
+  detailRowAction: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  detailRowActionText: { fontSize: 13, fontWeight: '600', color: ACCENT },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: Colors.gray200, marginHorizontal: 20 },
-
-  mapsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#EEF0FF',
-    borderRadius: 14,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-  },
-  mapsButtonIcon: { fontSize: 20 },
-  mapsButtonText: { fontSize: 15, fontWeight: '600', color: ACCENT },
 
   // Workflow tab
   workflowSection: { padding: 20 },

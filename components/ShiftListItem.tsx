@@ -1,34 +1,39 @@
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/lib/colors';
 
+const THUMB_GRADIENTS = [
+  Colors.coral,
+  '#6B7280',
+  '#9B7BA0',
+  '#5BA68F',
+  '#E8A05D',
+];
+
+function thumbColor(seed?: string) {
+  if (!seed) return THUMB_GRADIENTS[0];
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  return THUMB_GRADIENTS[Math.abs(hash) % THUMB_GRADIENTS.length];
+}
+
 export function ShiftThumbnail({ shift }: { shift: any }) {
-  const imageUrl = shift.project?.imageUrl || shift.project?.image;
-  const initial = (shift.title || '?').charAt(0).toUpperCase();
-
-  if (imageUrl) {
-    return (
-      <Image
-        source={{ uri: imageUrl }}
-        style={styles.thumbnail}
-        resizeMode="cover"
-      />
-    );
-  }
-
+  const seed = shift.project?.id ?? shift.id;
+  const letter = (shift.project?.title ?? shift.title ?? '?').charAt(0).toUpperCase();
   return (
-    <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
-      <Text style={styles.thumbnailInitial}>{initial}</Text>
+    <View style={[styles.thumbnail, { backgroundColor: thumbColor(seed) }]}>
+      <Text style={styles.thumbnailInitial}>{letter}</Text>
     </View>
   );
 }
 
 const TIME_ENTRY_BADGES: Record<string, { label: string; bg: string; color: string }> = {
-  DRAFT: { label: 'Declareren', bg: '#FFF3E0', color: '#E65100' },
+  DRAFT: { label: 'Declareren', bg: Colors.pendingSoft, color: '#B47028' },
   SUBMITTED: { label: 'In behandeling', bg: '#E3F2FD', color: '#1565C0' },
-  MORE_INFO_NEEDED: { label: 'Info nodig', bg: '#FFF3E0', color: '#E65100' },
-  APPROVED: { label: 'Goedgekeurd', bg: '#E8F5E9', color: '#2E7D32' },
+  MORE_INFO_NEEDED: { label: 'Info nodig', bg: Colors.pendingSoft, color: '#B47028' },
+  APPROVED: { label: 'Goedgekeurd', bg: Colors.successSoft, color: Colors.success },
   REJECTED: { label: 'Afgekeurd', bg: '#FFEBEE', color: '#C62828' },
   PAID: { label: 'Uitbetaald', bg: '#F3E5F5', color: '#6A1B9A' },
 };
@@ -44,23 +49,30 @@ export function ShiftListItem({
   isPendingRequest?: boolean;
   archived?: boolean;
 }) {
-  const formattedDate = shift.startTime
-    ? format(new Date(shift.startTime), 'd MMMM yyyy - HH:mm', { locale: nl })
+  const startDate = shift.startTime ? new Date(shift.startTime) : null;
+  const dateMeta = startDate
+    ? `${format(startDate, 'EEE d MMM', { locale: nl })} · ${format(startDate, 'HH:mm')}`
     : '';
 
-  // Toon declareer-badge alleen als de medewerker is uitgeklokt (clockOutAt aanwezig)
+  const role = shift.shiftRole?.name ?? shift.title ?? 'Dienst';
+  const projectName = shift.project?.title;
+
   const timeEntryBadge = shift.timeEntry?.clockOutAt
     ? TIME_ENTRY_BADGES[shift.timeEntry.status]
     : null;
 
   return (
-    <TouchableOpacity style={[styles.listItem, archived && styles.listItemArchived]} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={[styles.listItem, archived && styles.listItemArchived]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
       <ShiftThumbnail shift={shift} />
       <View style={styles.listItemContent}>
-        <Text style={styles.listItemTitle} numberOfLines={1}>{shift.title}</Text>
-        <Text style={styles.listItemDate} numberOfLines={1}>{formattedDate}</Text>
-        {shift.shiftRole && (
-          <Text style={styles.listItemRole} numberOfLines={1}>{shift.shiftRole.name}</Text>
+        <Text style={styles.listItemTitle} numberOfLines={1}>{role}</Text>
+        <Text style={styles.listItemMeta} numberOfLines={1}>{dateMeta}</Text>
+        {projectName && (
+          <Text style={styles.listItemSub} numberOfLines={1}>{projectName}</Text>
         )}
         {isPendingRequest && (
           <View style={styles.pendingBadge}>
@@ -68,31 +80,30 @@ export function ShiftListItem({
           </View>
         )}
         {timeEntryBadge && (
-          <View style={[styles.pendingBadge, { backgroundColor: timeEntryBadge.bg, borderColor: timeEntryBadge.color }]}>
-            <Text style={[styles.pendingBadgeText, { color: timeEntryBadge.color }]}>{timeEntryBadge.label}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: timeEntryBadge.bg }]}>
+            <Text style={[styles.statusBadgeText, { color: timeEntryBadge.color }]}>{timeEntryBadge.label}</Text>
           </View>
         )}
       </View>
+      <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
     </TouchableOpacity>
   );
 }
 
 export const shiftListStyles = StyleSheet.create({
   listContainer: {
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    overflow: 'hidden',
+    backgroundColor: 'transparent',
+    overflow: 'visible',
   },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: Colors.gray200,
-    marginLeft: 94,
-  },
+  divider: { height: 0 },
   emptyText: {
-    color: Colors.gray600,
+    color: Colors.muted,
     textAlign: 'center',
     padding: 24,
     lineHeight: 22,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    marginHorizontal: 0,
   },
 });
 
@@ -100,64 +111,79 @@ const styles = StyleSheet.create({
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    gap: 14,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 10,
+    shadowColor: '#140E0A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 20,
+    elevation: 2,
   },
-  listItemArchived: {
-    opacity: 0.55,
-  },
+  listItemArchived: { opacity: 0.55 },
   thumbnail: {
     width: 56,
     height: 56,
     borderRadius: 12,
-    marginRight: 14,
-    flexShrink: 0,
-  },
-  thumbnailPlaceholder: {
-    backgroundColor: Colors.coral,
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
   },
   thumbnailInitial: {
     fontSize: 22,
     fontWeight: '700',
     color: Colors.white,
     letterSpacing: -0.5,
+    fontFamily: 'Archivo_700Bold',
   },
   listItemContent: {
     flex: 1,
     justifyContent: 'center',
-    gap: 2,
+    minWidth: 0,
   },
   listItemTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: Colors.dark,
     fontFamily: 'Archivo_700Bold',
-    marginBottom: 2,
+    letterSpacing: -0.3,
   },
-  listItemDate: {
+  listItemMeta: {
     fontSize: 13,
-    color: Colors.gray800,
-    marginBottom: 2,
+    color: Colors.ink2,
+    marginTop: 2,
   },
-  listItemRole: {
+  listItemSub: {
     fontSize: 13,
-    color: Colors.gray600,
+    color: Colors.muted,
+    marginTop: 2,
   },
   pendingBadge: {
     marginTop: 4,
     alignSelf: 'flex-start',
-    backgroundColor: '#FFF8E1',
+    backgroundColor: Colors.pendingSoft,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: '#F59E0B',
   },
   pendingBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#92400E',
+    color: '#B47028',
+  },
+  statusBadge: {
+    marginTop: 6,
+    alignSelf: 'flex-start',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
 });

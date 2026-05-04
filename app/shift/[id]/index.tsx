@@ -83,6 +83,7 @@ export default function ShiftDetailScreen() {
 
   const locationAddr =
     shift.locationAddress ||
+    shift.project?.eventLocation ||
     shift.project?.location?.address;
 
   const opdrachtgever =

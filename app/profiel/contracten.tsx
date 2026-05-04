@@ -156,11 +156,27 @@ function ContractCard({ contract, onOpenPdf, downloading }: {
       <View style={styles.rows}>
         <Row label="Ingangsdatum" value={formatDate(contract.startDate)} />
         <Row label="Einddatum" value={contract.endDate ? formatDate(contract.endDate) : 'Onbepaalde tijd'} />
-        {contract.hoursPerWeek != null && (
-          <Row label="Uren per week" value={`${contract.hoursPerWeek} uur`} />
-        )}
-        {contract.hourlyRate != null && (
-          <Row label="Uurloon" value={`€ ${Number(contract.hourlyRate).toFixed(2)}`} />
+      </View>
+
+      <View style={styles.salaryBlock}>
+        <SalaryRow
+          label="Uren per week"
+          value={contract.hoursPerWeek != null ? `${contract.hoursPerWeek} uur` : '—'}
+        />
+        <View style={styles.salaryDivider} />
+        <SalaryRow
+          label="Bruto uurloon"
+          value={contract.hourlyRate != null ? `€ ${Number(contract.hourlyRate).toFixed(2)}` : '—'}
+        />
+        {contract.hourlyRate != null && contract.hoursPerWeek != null && (
+          <>
+            <View style={styles.salaryDivider} />
+            <SalaryRow
+              label="Bruto maandloon"
+              value={`€ ${((contract.hourlyRate * contract.hoursPerWeek * 52) / 12).toFixed(2)}`}
+              highlight
+            />
+          </>
         )}
       </View>
 
@@ -189,6 +205,15 @@ function Row({ label, value }: { label: string; value: string }) {
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
       <Text style={styles.rowValue}>{value}</Text>
+    </View>
+  );
+}
+
+function SalaryRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <View style={styles.salaryRow}>
+      <Text style={[styles.salaryLabel, highlight && styles.salaryLabelHighlight]}>{label}</Text>
+      <Text style={[styles.salaryValue, highlight && styles.salaryValueHighlight]}>{value}</Text>
     </View>
   );
 }
@@ -234,6 +259,28 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between' },
   rowLabel: { fontSize: 14, color: Colors.gray600 },
   rowValue: { fontSize: 14, color: Colors.dark, fontWeight: '500' },
+  salaryBlock: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  salaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  salaryDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#E2E8F0',
+  },
+  salaryLabel: { fontSize: 14, color: Colors.gray600 },
+  salaryLabelHighlight: { fontSize: 14, fontWeight: '700', color: Colors.dark, fontFamily: 'Archivo_700Bold' },
+  salaryValue: { fontSize: 14, color: Colors.dark, fontWeight: '500' },
+  salaryValueHighlight: { fontSize: 16, fontWeight: '700', color: Colors.teal, fontFamily: 'Archivo_700Bold' },
   pdfButton: {
     backgroundColor: Colors.teal + '15',
     borderRadius: 10,

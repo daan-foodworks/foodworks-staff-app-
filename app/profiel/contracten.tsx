@@ -27,6 +27,25 @@ function isExpired(contract: any) {
   return contract.endDate && new Date(contract.endDate) < new Date();
 }
 
+type ContractStatus = 'actief' | 'aflopend' | 'afgerond';
+
+function getContractStatus(contract: any): ContractStatus {
+  if (!contract.endDate) return 'actief';
+  const end = new Date(contract.endDate);
+  const now = new Date();
+  if (end < now) return 'afgerond';
+  const thirtyDays = new Date();
+  thirtyDays.setDate(thirtyDays.getDate() + 30);
+  if (end <= thirtyDays) return 'aflopend';
+  return 'actief';
+}
+
+const STATUS_CONFIG: Record<ContractStatus, { label: string; bg: string; color: string }> = {
+  actief:   { label: 'Actief',   bg: '#DCFCE7', color: '#15803D' },
+  aflopend: { label: 'Aflopend', bg: '#FEF3C7', color: '#92400E' },
+  afgerond: { label: 'Afgerond', bg: '#F3F4F6', color: '#6B7280' },
+};
+
 export default function ContractenScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -107,7 +126,6 @@ export default function ContractenScreen() {
                   contract={contract}
                   onOpenPdf={openPdf}
                   downloading={downloadingId === contract.id}
-                  past
                 />
               ))}
             </>
@@ -118,21 +136,21 @@ export default function ContractenScreen() {
   );
 }
 
-function ContractCard({ contract, onOpenPdf, downloading, past }: {
+function ContractCard({ contract, onOpenPdf, downloading }: {
   contract: any;
   onOpenPdf: (c: any) => void;
   downloading: boolean;
-  past?: boolean;
 }) {
+  const status = getContractStatus(contract);
+  const statusCfg = STATUS_CONFIG[status];
+
   return (
-    <View style={[styles.card, past && styles.cardPast]}>
+    <View style={styles.card}>
       <View style={styles.cardHeader}>
         <Text style={styles.contractType}>{CONTRACT_TYPE_LABELS[contract.type] ?? contract.type}</Text>
-        {past && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>Verlopen</Text>
-          </View>
-        )}
+        <View style={[styles.badge, { backgroundColor: statusCfg.bg }]}>
+          <Text style={[styles.badgeText, { color: statusCfg.color }]}>{statusCfg.label}</Text>
+        </View>
       </View>
 
       <View style={styles.rows}>
@@ -208,7 +226,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  cardPast: { opacity: 0.75 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   contractType: { fontSize: 17, fontWeight: '700', color: Colors.dark, fontFamily: 'Archivo_700Bold' },
   badge: { backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },

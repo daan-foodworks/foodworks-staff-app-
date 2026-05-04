@@ -352,20 +352,21 @@ export default function ShiftDetailScreen() {
           </View>
         </View>
 
-        {/* ── TABS ── */}
-        <View style={styles.tabs}>
-          {(['workflow', 'details', 'team'] as Tab[]).map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.tab, activeTab === tab && styles.tabActive]}
-              onPress={() => setActiveTab(tab)}
-            >
-              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+      </View>
+
+      {/* ── TABS (op lichte bg, onder header) ── */}
+      <View style={styles.tabs}>
+        {(['workflow', 'details', 'team'] as Tab[]).map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tab, activeTab === tab && styles.tabActive]}
+            onPress={() => setActiveTab(tab)}
+          >
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {/* ── TAB CONTENT ── */}
@@ -402,8 +403,8 @@ export default function ShiftDetailScreen() {
   );
 }
 
-const HEADER_BG = '#1A1A2E';
-const ACCENT = '#6C63FF'; // purple accent matching screenshot
+const HEADER_BG = '#2A1F2E';
+const ACCENT = Colors.coral;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
@@ -412,8 +413,8 @@ const styles = StyleSheet.create({
   // Header
   header: {
     backgroundColor: HEADER_BG,
-    paddingHorizontal: 20,
-    paddingBottom: 0,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
   },
   backBtn: { paddingVertical: 8, marginBottom: 4 },
   backText: { color: 'rgba(255,255,255,0.7)', fontSize: 16 },
@@ -446,25 +447,34 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.92)',
   },
 
-  // Tabs
+  // Tabs (coral pills op lichte bg)
   tabs: {
     flexDirection: 'row',
     gap: 8,
-    paddingVertical: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    backgroundColor: Colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.line,
   },
   tab: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 24,
+    height: 38,
+    borderRadius: 999,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.35)',
+    borderColor: Colors.coral,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   tabActive: {
-    borderColor: '#fff',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: Colors.coral,
+    shadowColor: Colors.coral,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.32,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  tabText: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.55)' },
+  tabText: { fontSize: 14, fontWeight: '600', color: Colors.coral },
   tabTextActive: { color: '#fff' },
 
   // Content area

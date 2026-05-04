@@ -1,15 +1,29 @@
 export const Colors = {
-  primary: '#c6afa8',      // terracotta/beige
-  accent: '#e78e89',       // zalm-koraal — CTAs, actieve states
-  teal: '#a4cdca',         // mint teal — success states
-  dark: '#1A1A2E',         // deep navy voor text
-  background: '#FAFAFA',
+  // Coral system (Street Nacho design)
+  coral: '#E85D5D',
+  coralSoft: '#FCE5E1',
+  coralDeep: '#C04545',
+
+  // Semantische aliases — accent en primary mappen nu op coral
+  primary: '#E85D5D',
+  accent: '#E85D5D',
+  teal: '#5BA68F',         // success groen
+
+  // Neutrale tekst & achtergrond
+  dark: '#1A1A2E',
+  ink2: '#4B5563',
+  background: '#FAF7F4',   // warm off-white
   white: '#FFFFFF',
+  line: '#ECECEE',
+
   // Status kleuren
-  success: '#a4cdca',      // ingeklokt
-  pending: '#e78e89',      // werkverzoek wacht
-  muted: '#c6afa8',        // afgelopen
-  // Gray
+  success: '#5BA68F',
+  successSoft: '#DBEDE5',
+  pending: '#E8A05D',
+  pendingSoft: '#FCEBD8',
+  muted: '#8B92A1',
+
+  // Gray scale
   gray100: '#F5F5F5',
   gray200: '#E5E5E5',
   gray400: '#9CA3AF',

@@ -77,7 +77,7 @@ export default function HomeScreen() {
       id: 'active',
       label: 'Vergeet niet uit te klokken',
       sub: `Ingeklokt om ${format(new Date(activeEntry.clockInAt), 'HH:mm')}`,
-      color: Colors.teal,
+      color: Colors.success,
       onPress: () => router.push(`/shift/${activeEntry.shiftId}/uitklokken` as any),
     });
   }
@@ -88,7 +88,7 @@ export default function HomeScreen() {
       id: `inv-${inv.id}`,
       label: 'Dienst accepteren',
       sub: inv.shift?.title ?? 'Onbekende dienst',
-      color: Colors.accent,
+      color: Colors.pending,
       onPress: () => router.push(`/shift/${inv.shiftId}` as any),
     });
   });
@@ -104,7 +104,7 @@ export default function HomeScreen() {
       id: `decl-${s.id}`,
       label: 'Uren declareren',
       sub: s.title,
-      color: Colors.primary,
+      color: Colors.coral,
       onPress: () => router.push(`/shift/${s.id}/declareren` as any),
     });
   });
@@ -123,36 +123,30 @@ export default function HomeScreen() {
         <View style={styles.heroOverlay} />
 
         {/* Greeting */}
-        <View style={[styles.greetingBlock, { paddingTop: topPadding }]}>
+        <View style={[styles.greetingBlock, { paddingTop: topPadding + 24 }]}>
           <Text style={styles.greetingTop}>{getGreeting()}</Text>
           <Text style={styles.greetingName}>{user?.name ?? 'daar'}</Text>
         </View>
 
         {/* Dienst info onderin banner */}
-        <TouchableOpacity
-          style={styles.shiftBlock}
-          onPress={() => upcomingShift && router.push(`/shift/${upcomingShift.id}` as any)}
-          activeOpacity={upcomingShift ? 0.85 : 1}
-        >
+        <View style={styles.shiftBlock}>
           <Text style={styles.shiftLabel}>Eerstvolgende dienst</Text>
           <Text style={styles.shiftTitle}>
             {upcomingShift?.title ?? 'Geen geplande diensten'}
           </Text>
           {upcomingShift && (
-            <View style={styles.shiftMeta}>
-              <View style={styles.shiftBadge}>
-                <Text style={styles.shiftBadgeText}>
-                  {getShiftTimeLabel(upcomingShift.startTime)}
-                </Text>
-              </View>
-              {upcomingShift.locationAddress ? (
-                <Text style={styles.shiftLocation} numberOfLines={1}>
-                  📍 {upcomingShift.locationAddress}
-                </Text>
-              ) : null}
-            </View>
+            <TouchableOpacity
+              style={styles.heroCta}
+              onPress={() => router.push(`/shift/${upcomingShift.id}` as any)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.heroCtaText}>
+                {getShiftTimeLabel(upcomingShift.startTime)}
+              </Text>
+              <Text style={styles.heroCtaChevron}>›</Text>
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
+        </View>
       </ImageBackground>
 
       {/* Actielijst — alleen bij openstaande acties */}
@@ -225,83 +219,89 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
 
   hero: {
-    height: 420,
+    height: 460,
     justifyContent: 'space-between',
   },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.48)',
+    backgroundColor: 'rgba(20,15,25,0.55)',
   },
 
   greetingBlock: {
-    paddingHorizontal: 22,
+    paddingHorizontal: 24,
     paddingBottom: 8,
   },
   greetingTop: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.75)',
+    fontSize: 18,
+    color: 'rgba(255,255,255,0.9)',
     fontWeight: '400',
   },
   greetingName: {
     fontSize: 32,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#fff',
     fontFamily: 'Archivo_700Bold',
-    marginTop: 2,
+    marginTop: 4,
+    letterSpacing: -0.5,
   },
 
   shiftBlock: {
-    paddingHorizontal: 22,
+    paddingHorizontal: 24,
     paddingBottom: 28,
-    gap: 6,
   },
   shiftLabel: {
     fontSize: 11,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.6)',
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.85)',
     textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    marginBottom: 2,
+    letterSpacing: 1.6,
+    marginBottom: 6,
   },
   shiftTitle: {
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 26,
+    fontWeight: '700',
     color: '#fff',
     fontFamily: 'Archivo_700Bold',
-    lineHeight: 28,
+    lineHeight: 30,
+    marginBottom: 14,
+    letterSpacing: -0.5,
   },
-  shiftMeta: {
+  heroCta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    flexWrap: 'wrap',
-    marginTop: 4,
+    alignSelf: 'flex-start',
+    gap: 8,
+    backgroundColor: Colors.coral,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    shadowColor: Colors.coral,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.32,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  shiftBadge: {
-    backgroundColor: Colors.accent,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  shiftBadgeText: {
+  heroCtaText: {
     color: '#fff',
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
   },
-  shiftLocation: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 13,
-    flex: 1,
+  heroCtaChevron: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: -2,
   },
 
   section: { paddingHorizontal: 16, paddingTop: 24 },
   sectionLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: Colors.gray400,
+    color: Colors.muted,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.6,
     marginBottom: 10,
+    paddingHorizontal: 8,
   },
   actionList: {
     backgroundColor: Colors.white,

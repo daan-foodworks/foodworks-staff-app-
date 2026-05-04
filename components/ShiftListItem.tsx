@@ -107,21 +107,22 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   thumbnail: {
-    width: 64,
-    height: 64,
-    borderRadius: 8,
+    width: 56,
+    height: 56,
+    borderRadius: 12,
     marginRight: 14,
     flexShrink: 0,
   },
   thumbnailPlaceholder: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.coral,
     justifyContent: 'center',
     alignItems: 'center',
   },
   thumbnailInitial: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: Colors.white,
+    letterSpacing: -0.5,
   },
   listItemContent: {
     flex: 1,

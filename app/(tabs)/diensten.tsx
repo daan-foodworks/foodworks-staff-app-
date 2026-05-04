@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, RefreshControl, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, StyleSheet, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { shiftsApi, invitationsApi } from '@/lib/api';
 import { Colors } from '@/lib/colors';
@@ -8,6 +9,7 @@ import { ShiftListItem, shiftListStyles } from '@/components/ShiftListItem';
 
 export default function DienstenScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
 
   const { data: openShifts, isLoading, refetch: refetchShifts } = useQuery({
@@ -35,13 +37,14 @@ export default function DienstenScreen() {
   return (
     <ScrollView
       style={styles.container}
+      contentContainerStyle={{ paddingTop: insets.top + 16 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Open Diensten</Text>
         <View style={shiftListStyles.listContainer}>
           {isLoading ? (
-            <Text style={shiftListStyles.emptyText}>Laden...</Text>
+            <ActivityIndicator size="large" color={Colors.teal} style={{ marginVertical: 24 }} />
           ) : !openShifts?.length ? (
             <Text style={shiftListStyles.emptyText}>Geen open diensten op dit moment</Text>
           ) : (
@@ -64,7 +67,7 @@ export default function DienstenScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  section: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8 },
+  section: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',

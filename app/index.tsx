@@ -13,5 +13,5 @@ export default function Index() {
     );
   }
 
-  return <Redirect href={user ? '/(tabs)/rooster' : '/(auth)/login'} />;
+  return <Redirect href={user ? '/(tabs)/home' : '/(auth)/login'} />;
 }

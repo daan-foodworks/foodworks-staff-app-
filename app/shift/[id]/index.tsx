@@ -1,16 +1,30 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Modal } from 'react-native';
+import {
+  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  ActivityIndicator, Alert, Modal, Linking, Platform,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { shiftsApi, invitationsApi } from '@/lib/api';
+import { useAuthStore } from '@/lib/auth-store';
 import { Colors } from '@/lib/colors';
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
+
+type Tab = 'workflow' | 'details' | 'team';
+
+function initials(name: string) {
+  return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+}
 
 export default function ShiftDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
+  const { user: me } = useAuthStore();
+  const [activeTab, setActiveTab] = useState<Tab>('details');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const { data: shift, isLoading } = useQuery({
@@ -23,6 +37,12 @@ export default function ShiftDetailScreen() {
     queryFn: () => invitationsApi.getMyInvitations().then(r => r.data),
   });
 
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ['shift-team', id],
+    queryFn: () => shiftsApi.getShiftTeam(id).then(r => r.data),
+    enabled: !!shift,
+  });
+
   const requestMutation = useMutation({
     mutationFn: () => shiftsApi.requestShift(id),
     onSuccess: () => {
@@ -33,11 +53,7 @@ export default function ShiftDetailScreen() {
       setShowSuccessModal(true);
     },
     onError: () => {
-      Alert.alert(
-        'Aanmelding mislukt',
-        'Er is iets misgegaan bij het versturen van je aanmelding. Probeer het opnieuw.',
-        [{ text: 'Sluiten' }]
-      );
+      Alert.alert('Aanmelding mislukt', 'Er is iets misgegaan. Probeer het opnieuw.', [{ text: 'Sluiten' }]);
     },
   });
 
@@ -47,6 +63,7 @@ export default function ShiftDetailScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shift', id] });
       queryClient.invalidateQueries({ queryKey: ['my-shifts'] });
+      queryClient.invalidateQueries({ queryKey: ['my-invitations'] });
     },
   });
 
@@ -54,255 +71,498 @@ export default function ShiftDetailScreen() {
     return <View style={styles.centered}><ActivityIndicator color={Colors.accent} /></View>;
   }
 
-  const today = new Date();
   const shiftDate = new Date(shift.startTime);
+  const today = new Date();
   const isToday = today.toDateString() === shiftDate.toDateString();
   const canClockIn = isToday && shift.invitation?.status === 'ACCEPTED';
 
-  // Check of er een REQUESTED invitation bestaat voor deze shift via de my-invitations lijst
   const pendingInvitation = myInvitations?.find(
     (inv: any) => inv.shiftId === shift.id && inv.status === 'REQUESTED'
   );
-  // Fallback: de shift zelf kan ook een invitation object bevatten
-  const hasRequestedStatus =
-    pendingInvitation != null || shift.invitation?.status === 'REQUESTED';
+  const hasRequestedStatus = pendingInvitation != null || shift.invitation?.status === 'REQUESTED';
 
-  return (
-    <ScrollView style={styles.container}>
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Text style={styles.backText}>Terug</Text>
-      </TouchableOpacity>
+  const locationAddr =
+    shift.locationAddress ||
+    shift.location?.address ||
+    shift.project?.location?.address;
 
-      <View style={styles.header}>
-        <Text style={styles.date}>
-          {format(shiftDate, 'EEEE d MMMM', { locale: nl })}
-        </Text>
-        <Text style={styles.time}>
-          {format(new Date(shift.startTime), 'HH:mm')} – {format(new Date(shift.endTime), 'HH:mm')}
-        </Text>
-        <Text style={styles.title}>{shift.title}</Text>
-        {shift.locationAddress && <Text style={styles.location}>{shift.locationAddress}</Text>}
-        {shift.shiftRole && <Text style={styles.role}>{shift.shiftRole.name}</Text>}
+  const opdrachtgever =
+    shift.project?.customer?.companyName ||
+    shift.project?.customer?.name ||
+    shift.project?.clientName ||
+    'Street Nacho';
+
+  const projectManager = shift.project?.projectManager?.name ?? 'Volgt';
+
+
+  const headerTop = insets.top + (Platform.OS === 'ios' ? 8 : 16);
+
+  // ── TAB CONTENT ───────────────────────────────────────────────────────────
+
+  const renderDetails = () => (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 120 }}>
+      {/* Opdrachtgever */}
+      <View style={styles.detailSection}>
+        <View style={styles.detailLabelRow}>
+          <View style={styles.detailIcon}><Text style={styles.detailIconText}>🏢</Text></View>
+          <Text style={styles.detailLabel}>Opdrachtgever</Text>
+        </View>
+        <Text style={styles.detailValue}>{opdrachtgever}</Text>
       </View>
 
-      {shift.project?.briefing?.customSections?.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>PROJECTBRIEFING</Text>
+      <View style={styles.divider} />
+
+      {/* Project */}
+      <View style={styles.detailSection}>
+        <View style={styles.detailLabelRow}>
+          <View style={styles.detailIcon}><Text style={styles.detailIconText}>📋</Text></View>
+          <Text style={styles.detailLabel}>Project</Text>
+        </View>
+        <Text style={styles.detailValue}>{shift.project?.title ?? '—'}</Text>
+        {shift.shiftRole?.name && (
+          <Text style={styles.detailSub}>{shift.shiftRole.name}</Text>
+        )}
+      </View>
+
+      <View style={styles.divider} />
+
+      {/* Projectnummer */}
+      <View style={styles.detailSection}>
+        <Text style={styles.detailLabel}>Projectnummer</Text>
+        <Text style={styles.detailValue}>{shift.project?.projectNumber ?? '—'}</Text>
+      </View>
+
+      <View style={styles.divider} />
+
+      {/* Projectmanager */}
+      <View style={styles.detailSection}>
+        <Text style={styles.detailLabel}>Projectmanager</Text>
+        <Text style={styles.detailValue}>{projectManager}</Text>
+      </View>
+
+      {/* Maps button */}
+      {locationAddr && (
+        <View style={{ paddingHorizontal: 20, paddingTop: 24 }}>
+          <TouchableOpacity
+            style={styles.mapsButton}
+            onPress={() => Linking.openURL(`maps:?q=${encodeURIComponent(locationAddr)}`)}
+          >
+            <Text style={styles.mapsButtonIcon}>📍</Text>
+            <Text style={styles.mapsButtonText}>Adres op Google Maps</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </ScrollView>
+  );
+
+  const renderWorkflow = () => (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 120 }}>
+      {shift.project?.briefing?.customSections?.length > 0 ? (
+        <View style={styles.workflowSection}>
+          <Text style={styles.workflowSectionTitle}>Projectbriefing</Text>
           {shift.project.briefing.customSections.map((section: any, i: number) => (
-            <View key={i} style={styles.briefingItem}>
-              <Text style={styles.briefingLabel}>{section.title}</Text>
-              <Text style={styles.briefingText}>{section.content}</Text>
+            <View key={i} style={styles.workflowItem}>
+              <Text style={styles.workflowItemTitle}>{section.title}</Text>
+              <Text style={styles.workflowItemText}>{section.content}</Text>
             </View>
           ))}
         </View>
-      )}
+      ) : null}
 
-      {shift.workflows?.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>DIENST-INSTRUCTIES</Text>
+      {shift.workflows?.length > 0 ? (
+        <View style={styles.workflowSection}>
+          <Text style={styles.workflowSectionTitle}>Dienst-instructies</Text>
           {shift.workflows.map((wf: any, i: number) => (
             <View key={wf.id} style={styles.workflowItem}>
-              <Text style={styles.workflowTitle}>{i + 1}. {wf.title}</Text>
-              <Text style={styles.workflowContent}>{wf.content}</Text>
+              <Text style={styles.workflowItemTitle}>{i + 1}. {wf.title}</Text>
+              <Text style={styles.workflowItemText}>{wf.content}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {!shift.project?.briefing?.customSections?.length && !shift.workflows?.length && (
+        <View style={styles.emptyTab}>
+          <Text style={styles.emptyTabText}>Geen instructies beschikbaar</Text>
+        </View>
+      )}
+    </ScrollView>
+  );
+
+  const renderTeam = () => (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 120 }}>
+      {teamMembers.length === 0 ? (
+        <View style={styles.emptyTab}>
+          <Text style={styles.emptyTabText}>Nog geen collega's bevestigd</Text>
+        </View>
+      ) : (
+        <View style={styles.teamList}>
+          <Text style={styles.teamIntro}>Je staat deze dag ingepland met:</Text>
+          {teamMembers.map((member: any) => (
+            <View key={member.id} style={styles.teamItem}>
+              <View style={styles.teamAvatar}>
+                <Text style={styles.teamAvatarText}>{initials(member.name ?? '?')}</Text>
+              </View>
+              <View style={styles.teamInfo}>
+                <Text style={styles.teamName}>{member.name ?? 'Onbekend'}</Text>
+                <Text style={styles.teamRole}>{member.shiftTitle ?? member.shiftRole}</Text>
+                <Text style={styles.teamMeta}>
+                  {format(new Date(member.startTime), 'HH:mm')} - {format(new Date(member.endTime), 'HH:mm')}
+                </Text>
+              </View>
             </View>
           ))}
         </View>
       )}
+    </ScrollView>
+  );
 
-      {shift.vehicleDayAssignment && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>RIT DETAILS</Text>
-          <Text style={styles.vehicleText}>
-            Voertuig: {shift.vehicleDayAssignment.vehicle?.licensePlate || 'onbekend'}
-          </Text>
-        </View>
-      )}
+  // ── BOTTOM ACTIONS ────────────────────────────────────────────────────────
 
-      <View style={styles.actions}>
-        {shift.invitation?.status === 'PENDING' && (
-          <View style={styles.inviteButtons}>
-            <TouchableOpacity
-              style={[styles.button, styles.acceptButton]}
-              onPress={() => respondMutation.mutate('ACCEPTED')}
-              disabled={respondMutation.isPending}
-            >
-              <Text style={styles.buttonText}>Accepteren</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.declineButton]}
-              onPress={() => respondMutation.mutate('DECLINED')}
-              disabled={respondMutation.isPending}
-            >
-              <Text style={[styles.buttonText, { color: Colors.dark }]}>Weigeren</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {hasRequestedStatus && (
-          <View style={styles.pendingBanner}>
-            <Text style={styles.pendingBannerIcon}>Aanmelding in behandeling</Text>
-            <Text style={styles.pendingBannerText}>
-              Je aanmelding wordt beoordeeld door de planner
-            </Text>
-          </View>
-        )}
-
-        {canClockIn && (
+  const renderBottomActions = () => {
+    if (shift.invitation?.status === 'PENDING') {
+      return (
+        <View style={styles.bottomActions}>
           <TouchableOpacity
-            style={[styles.button, styles.clockInButton]}
+            style={[styles.actionBtn, styles.acceptBtn]}
+            onPress={() => respondMutation.mutate('ACCEPTED')}
+            disabled={respondMutation.isPending}
+          >
+            <Text style={styles.actionBtnText}>Accepteren</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.declineBtn]}
+            onPress={() => respondMutation.mutate('DECLINED')}
+            disabled={respondMutation.isPending}
+          >
+            <Text style={[styles.actionBtnText, { color: Colors.dark }]}>Weigeren</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (hasRequestedStatus) {
+      return (
+        <View style={styles.bottomActions}>
+          <View style={[styles.actionBtn, styles.pendingBtn]}>
+            <Text style={[styles.actionBtnText, { color: '#92400E' }]}>Aanmelding in behandeling</Text>
+          </View>
+        </View>
+      );
+    }
+
+    if (canClockIn) {
+      return (
+        <View style={styles.bottomActions}>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.clockInBtn]}
             onPress={() => router.push(`/shift/${id}/inklokken` as any)}
           >
-            <Text style={styles.buttonText}>Inklokken</Text>
+            <Text style={styles.actionBtnText}>Inklokken</Text>
           </TouchableOpacity>
-        )}
+        </View>
+      );
+    }
 
-        {!shift.invitation && !hasRequestedStatus && shift.status === 'OPEN' && (
+    if (!shift.invitation && !hasRequestedStatus && shift.status === 'OPEN') {
+      return (
+        <View style={styles.bottomActions}>
           <TouchableOpacity
-            style={[styles.button, styles.requestButton]}
+            style={[styles.actionBtn, styles.requestBtn]}
             onPress={() => requestMutation.mutate()}
             disabled={requestMutation.isPending}
           >
-            {requestMutation.isPending ? (
-              <ActivityIndicator color={Colors.white} size="small" />
-            ) : (
-              <Text style={styles.buttonText}>Ik wil deze dienst!</Text>
-            )}
+            {requestMutation.isPending
+              ? <ActivityIndicator color={Colors.white} size="small" />
+              : <Text style={styles.actionBtnText}>Ik wil deze dienst!</Text>
+            }
           </TouchableOpacity>
-        )}
+        </View>
+      );
+    }
 
-        {shift.timeEntry?.clockOutAt && (
+    if (shift.timeEntry?.clockOutAt) {
+      return (
+        <View style={styles.bottomActions}>
           <TouchableOpacity
-            style={[styles.button, styles.declareButton]}
+            style={[styles.actionBtn, styles.declareBtn]}
             onPress={() => router.push(`/shift/${id}/declareren` as any)}
           >
-            <Text style={styles.buttonText}>Uren declareren</Text>
+            <Text style={styles.actionBtnText}>Uren declareren</Text>
           </TouchableOpacity>
-        )}
+        </View>
+      );
+    }
+
+    if (shift.invitation?.status === 'ACCEPTED') {
+      return (
+        <View style={styles.bottomActions}>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.uitschrijvenBtn]}
+            onPress={() => {
+              Alert.alert(
+                'Uitschrijven',
+                'Weet je zeker dat je je wilt uitschrijven voor deze dienst?',
+                [
+                  { text: 'Annuleren', style: 'cancel' },
+                  {
+                    text: 'Uitschrijven',
+                    style: 'destructive',
+                    onPress: () => respondMutation.mutate('DECLINED', {
+                      onSuccess: () => router.replace('/(tabs)/rooster' as any),
+                    }),
+                  },
+                ]
+              );
+            }}
+          >
+            <Text style={styles.actionBtnText}>Uitschrijven</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <View style={styles.screen}>
+      {/* ── HEADER ── */}
+      <View style={[styles.header, { paddingTop: headerTop }]}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Text style={styles.backText}>‹  Mijn jobs</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.headerTitle}>{shift.title}</Text>
+
+        {locationAddr ? (
+          <View style={styles.headerMeta}>
+            <Text style={styles.headerMetaIcon}>📍</Text>
+            <Text style={styles.headerMetaText} numberOfLines={1}>{locationAddr}</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.headerMeta}>
+          <Text style={styles.headerMetaIcon}>📅</Text>
+          <Text style={styles.headerMetaText}>
+            {format(shiftDate, 'EEE. d MMM', { locale: nl })}
+          </Text>
+          <Text style={styles.headerMetaIcon}> ⏰</Text>
+          <Text style={styles.headerMetaText}>
+            {format(new Date(shift.startTime), 'HH:mm')} - {format(new Date(shift.endTime), 'HH:mm')}
+          </Text>
+        </View>
+
+        {/* ── TABS ── */}
+        <View style={styles.tabs}>
+          {(['workflow', 'details', 'team'] as Tab[]).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, activeTab === tab && styles.tabActive]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
-      <Modal
-        visible={showSuccessModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowSuccessModal(false)}
-      >
+      {/* ── TAB CONTENT ── */}
+      <View style={styles.content}>
+        {activeTab === 'details' && renderDetails()}
+        {activeTab === 'workflow' && renderWorkflow()}
+        {activeTab === 'team' && renderTeam()}
+      </View>
+
+      {/* ── BOTTOM ACTIONS ── */}
+      {renderBottomActions()}
+
+      {/* ── SUCCESS MODAL ── */}
+      <Modal visible={showSuccessModal} transparent animationType="fade" onRequestClose={() => setShowSuccessModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <View style={styles.modalIconContainer}>
-              <Text style={styles.modalIcon}>✓</Text>
+            <View style={styles.modalIconWrap}>
+              <Text style={styles.modalIconText}>✓</Text>
             </View>
             <Text style={styles.modalTitle}>Aanmelding verzonden!</Text>
-            <Text style={styles.modalText}>
+            <Text style={styles.modalBody}>
               Je aanmelding is doorgestuurd naar de planner. Je ontvangt een bericht zodra je aanmelding bevestigd of geweigerd is.
             </Text>
             <TouchableOpacity
-              style={[styles.button, styles.modalButton]}
-              onPress={() => {
-                setShowSuccessModal(false);
-                router.replace('/(tabs)/diensten' as any);
-              }}
+              style={[styles.actionBtn, styles.requestBtn, { flex: 0, width: '100%' }]}
+              onPress={() => { setShowSuccessModal(false); router.replace('/(tabs)/diensten' as any); }}
             >
-              <Text style={styles.buttonText}>Terug naar diensten</Text>
+              <Text style={styles.actionBtnText}>Terug naar diensten</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
+const HEADER_BG = '#1A1A2E';
+const ACCENT = '#6C63FF'; // purple accent matching screenshot
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  backButton: { padding: 16, paddingTop: 60 },
-  backText: { color: Colors.accent, fontSize: 16 },
-  header: { padding: 16, backgroundColor: Colors.white, marginBottom: 8 },
-  date: { fontSize: 14, color: Colors.gray600, marginBottom: 4 },
-  time: { fontSize: 22, fontWeight: '700', color: Colors.dark },
-  title: { fontSize: 18, fontWeight: '600', color: Colors.dark, marginTop: 4 },
-  location: { fontSize: 14, color: Colors.gray600, marginTop: 8 },
-  role: { fontSize: 14, color: Colors.gray600, marginTop: 4 },
-  section: { backgroundColor: Colors.white, margin: 8, borderRadius: 12, padding: 16 },
-  sectionTitle: { fontSize: 12, fontWeight: '700', color: Colors.gray400, textTransform: 'uppercase', marginBottom: 12 },
-  briefingItem: { marginBottom: 8 },
-  briefingLabel: { fontSize: 14, fontWeight: '600', color: Colors.dark },
-  briefingText: { fontSize: 14, color: Colors.gray600, marginTop: 2 },
-  workflowItem: { marginBottom: 12 },
-  workflowTitle: { fontSize: 14, fontWeight: '600', color: Colors.dark },
-  workflowContent: { fontSize: 14, color: Colors.gray600, marginTop: 4 },
-  vehicleText: { fontSize: 14, color: Colors.gray800 },
-  actions: { padding: 16, gap: 12 },
-  inviteButtons: { flexDirection: 'row', gap: 12 },
-  button: { borderRadius: 12, padding: 16, alignItems: 'center', flex: 1 },
-  acceptButton: { backgroundColor: Colors.teal },
-  declineButton: { backgroundColor: Colors.gray100 },
-  clockInButton: { backgroundColor: Colors.accent },
-  requestButton: { backgroundColor: Colors.accent },
-  declareButton: { backgroundColor: Colors.primary },
-  buttonText: { color: Colors.white, fontSize: 16, fontWeight: '600' },
-  pendingBanner: {
-    backgroundColor: '#FFF8E1',
-    borderRadius: 12,
-    padding: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#F59E0B',
-    gap: 4,
+  screen: { flex: 1, backgroundColor: Colors.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+
+  // Header
+  header: {
+    backgroundColor: HEADER_BG,
+    paddingHorizontal: 20,
+    paddingBottom: 0,
   },
-  pendingBannerIcon: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#92400E',
+  backBtn: { paddingVertical: 8, marginBottom: 4 },
+  backText: { color: 'rgba(255,255,255,0.7)', fontSize: 16 },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#fff',
+    lineHeight: 32,
+    marginBottom: 10,
+    fontFamily: 'Archivo_700Bold',
   },
-  pendingBannerText: {
-    fontSize: 13,
-    color: '#92400E',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
+  headerMeta: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 24,
+    gap: 4,
+    marginBottom: 6,
+  },
+  headerMetaIcon: { fontSize: 14 },
+  headerMetaText: { fontSize: 14, color: 'rgba(255,255,255,0.75)', flexShrink: 1 },
+
+  // Tabs
+  tabs: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 16,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.35)',
+    alignItems: 'center',
+  },
+  tabActive: {
+    borderColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  tabText: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.55)' },
+  tabTextActive: { color: '#fff' },
+
+  // Content area
+  content: { flex: 1, backgroundColor: Colors.background },
+
+  // Details tab
+  detailSection: { paddingHorizontal: 20, paddingVertical: 16 },
+  detailLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  detailIcon: {
+    width: 32, height: 32, borderRadius: 8,
+    backgroundColor: '#EEEEFF', alignItems: 'center', justifyContent: 'center',
+  },
+  detailIconText: { fontSize: 16 },
+  detailLabel: { fontSize: 13, color: Colors.gray400, fontWeight: '500' },
+  detailValue: { fontSize: 17, fontWeight: '700', color: Colors.dark },
+  detailSub: { fontSize: 14, color: Colors.gray600, marginTop: 2 },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: Colors.gray200, marginHorizontal: 20 },
+
+  mapsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#EEF0FF',
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+  },
+  mapsButtonIcon: { fontSize: 20 },
+  mapsButtonText: { fontSize: 15, fontWeight: '600', color: ACCENT },
+
+  // Workflow tab
+  workflowSection: { padding: 20 },
+  workflowSectionTitle: {
+    fontSize: 11, fontWeight: '700', color: Colors.gray400,
+    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12,
+  },
+  workflowItem: {
+    backgroundColor: Colors.white, borderRadius: 12, padding: 14,
+    marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 3, elevation: 1,
+  },
+  workflowItemTitle: { fontSize: 14, fontWeight: '700', color: Colors.dark, marginBottom: 4 },
+  workflowItemText: { fontSize: 14, color: Colors.gray600, lineHeight: 20 },
+
+  // Team tab
+  teamList: { padding: 20 },
+  teamIntro: {
+    fontSize: 14, color: Colors.gray400, marginBottom: 20,
+  },
+  teamItem: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 16,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.gray200,
+  },
+  teamAvatar: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: Colors.gray200, alignItems: 'center', justifyContent: 'center',
+  },
+  teamAvatarText: { color: Colors.gray600, fontWeight: '700', fontSize: 16 },
+  teamInfo: { flex: 1 },
+  teamName: { fontSize: 16, fontWeight: '700', color: Colors.dark, marginBottom: 3 },
+  teamRole: { fontSize: 14, color: Colors.gray600, marginBottom: 2 },
+  teamMeta: { fontSize: 14, color: Colors.gray600 },
+
+  // Empty state
+  emptyTab: { flex: 1, alignItems: 'center', paddingTop: 60 },
+  emptyTabText: { fontSize: 15, color: Colors.gray400 },
+
+  // Bottom actions
+  bottomActions: {
+    position: 'absolute',
+    bottom: 0, left: 0, right: 0,
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 32,
+    backgroundColor: Colors.white,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.gray200,
+  },
+  actionBtn: {
+    flex: 1, borderRadius: 14, paddingVertical: 16,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  actionBtnText: { color: Colors.white, fontSize: 16, fontWeight: '700' },
+  acceptBtn: { backgroundColor: Colors.teal },
+  declineBtn: { backgroundColor: Colors.gray100 },
+  clockInBtn: { backgroundColor: Colors.accent },
+  requestBtn: { backgroundColor: ACCENT },
+  declareBtn: { backgroundColor: Colors.primary },
+  uitschrijvenBtn: { backgroundColor: ACCENT },
+  pendingBtn: { backgroundColor: '#FFF8E1', borderWidth: 1, borderColor: '#F59E0B' },
+
+  // Modal
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center', alignItems: 'center', padding: 24,
   },
   modalCard: {
-    backgroundColor: Colors.white,
-    borderRadius: 20,
-    padding: 28,
-    width: '100%',
-    alignItems: 'center',
-    gap: 12,
+    backgroundColor: Colors.white, borderRadius: 20, padding: 28,
+    width: '100%', alignItems: 'center', gap: 12,
   },
-  modalIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Colors.teal,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 4,
+  modalIconWrap: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: Colors.teal, justifyContent: 'center', alignItems: 'center',
   },
-  modalIcon: {
-    fontSize: 32,
-    color: Colors.white,
-    fontWeight: '700',
-    lineHeight: 36,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.dark,
-    textAlign: 'center',
-  },
-  modalText: {
-    fontSize: 14,
-    color: Colors.gray600,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  modalButton: {
-    backgroundColor: Colors.accent,
-    width: '100%',
-    flex: 0,
-  },
+  modalIconText: { fontSize: 32, color: Colors.white, fontWeight: '700', lineHeight: 36 },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: Colors.dark, textAlign: 'center' },
+  modalBody: { fontSize: 14, color: Colors.gray600, textAlign: 'center', lineHeight: 20, marginBottom: 8 },
 });

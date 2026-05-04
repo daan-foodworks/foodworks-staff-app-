@@ -13,6 +13,15 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
+        name="home"
+        options={{
+          title: 'Home',
+          tabBarIcon: ({ color, focused, size }) => (
+            <Ionicons name={focused ? 'home' : 'home-outline'} color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="rooster"
         options={{
           title: 'Rooster',

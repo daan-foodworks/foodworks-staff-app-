@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, RefreshControl, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { shiftsApi, timeEntriesApi, invitationsApi } from '@/lib/api';
 import { Colors } from '@/lib/colors';
@@ -11,6 +12,7 @@ import { nl } from 'date-fns/locale';
 export default function RoosterScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
 
   const { data: myShifts, isLoading, refetch } = useQuery({
@@ -56,6 +58,7 @@ export default function RoosterScreen() {
   return (
     <ScrollView
       style={styles.container}
+      contentContainerStyle={{ paddingTop: insets.top + 16 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       {/* Actieve dienst banner */}
@@ -131,7 +134,7 @@ export default function RoosterScreen() {
         <Text style={styles.sectionTitle}>Mijn Diensten</Text>
         <View style={shiftListStyles.listContainer}>
           {isLoading ? (
-            <Text style={shiftListStyles.emptyText}>Laden...</Text>
+            <ActivityIndicator size="large" color={Colors.teal} style={{ marginVertical: 24 }} />
           ) : !myShifts?.length ? (
             <Text style={shiftListStyles.emptyText}>
               Geen diensten gepland — je ontvangt een melding zodra er een dienst voor je klaarstaat
@@ -155,7 +158,7 @@ export default function RoosterScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  section: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8 },
+  section: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',

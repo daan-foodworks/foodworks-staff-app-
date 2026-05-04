@@ -44,6 +44,7 @@ export const shiftsApi = {
   getShift: (id: string) => api.get(`/shifts/${id}`),
   requestShift: (id: string) => api.post(`/shifts/${id}/request`),
   getTravelDistance: (shiftId: string) => api.get(`/shifts/${shiftId}/travel-distance`),
+  getShiftTeam: (shiftId: string) => api.get(`/shifts/${shiftId}/team`),
 };
 
 // Shift invitations
@@ -84,4 +85,5 @@ export const expensesApi = {
 // HR
 export const hrApi = {
   getMyContract: () => api.get('/hr/me/contract'),
+  getMyContracts: () => api.get('/hr/me/contracts'),
 };

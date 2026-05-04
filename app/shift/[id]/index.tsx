@@ -81,13 +81,8 @@ export default function ShiftDetailScreen() {
   );
   const hasRequestedStatus = pendingInvitation != null || shift.invitation?.status === 'REQUESTED';
 
-  const locationName =
-    shift.location?.name ||
-    shift.project?.location?.name;
-
   const locationAddr =
     shift.locationAddress ||
-    shift.location?.address ||
     shift.project?.location?.address;
 
   const opdrachtgever =
@@ -152,17 +147,9 @@ export default function ShiftDetailScreen() {
           <View style={styles.detailIcon}><Text style={styles.detailIconText}>📍</Text></View>
           <Text style={styles.detailLabel}>Locatie</Text>
         </View>
-        {locationName || locationAddr ? (
-          <TouchableOpacity
-            onPress={() => locationAddr ? Linking.openURL(`maps:?q=${encodeURIComponent(locationAddr)}`) : undefined}
-            disabled={!locationAddr}
-          >
-            {locationName && <Text style={styles.detailValue}>{locationName}</Text>}
-            {locationAddr && (
-              <Text style={[locationName ? styles.detailSub : styles.detailValue, locationAddr && styles.detailValueLink]}>
-                {locationAddr}
-              </Text>
-            )}
+        {locationAddr ? (
+          <TouchableOpacity onPress={() => Linking.openURL(`maps:?q=${encodeURIComponent(locationAddr)}`)}>
+            <Text style={[styles.detailValue, styles.detailValueLink]}>{locationAddr}</Text>
           </TouchableOpacity>
         ) : (
           <Text style={styles.detailValue}>—</Text>
